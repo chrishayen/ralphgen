@@ -28,3 +28,17 @@
   - Type checking enabled with `tsc --noEmit`
 ---
 
+## 2026-01-21 - US-002
+- Implemented prompt input and z-image integration
+- Files modified:
+  - index.html: Added textarea for prompt, Generate button, loading indicator, error message div
+  - styles.css: Added .hidden, .loading-indicator, .spinner (with animation), .error-message styles
+  - app.js: Added generateImage(), showLoading/hideLoading(), showError/hideError(), setBackgroundImage() functions
+- **Learnings for future iterations:**
+  - Background image stored in global `backgroundImage` variable for future reference/removal
+  - z-image API expects POST with JSON body `{ prompt: string }`, returns `{ image: base64 }` or `{ url: string }`
+  - Use `fabricLib.Image.fromURL()` to load images, with `{ crossOrigin: 'anonymous' }` option
+  - Background images are non-selectable (`selectable: false, evented: false`) and sent to back
+  - CONFIG object at top of app.js holds endpoint URL for easy configuration
+---
+
