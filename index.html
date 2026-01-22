@@ -26,6 +26,24 @@
                     <h2>Controls</h2>
                     <p>Generate and customize your Ralph Wiggum meme</p>
                 </div>
+
+                <div class="control-group">
+                    <label for="prompt-input">Image Prompt</label>
+                    <textarea id="prompt-input" rows="3" placeholder="Enter a prompt for Ralph Wiggum image generation..."></textarea>
+                </div>
+
+                <div class="control-group">
+                    <div class="button-row">
+                        <button id="generate-btn" type="button">Generate Image</button>
+                    </div>
+                </div>
+
+                <div id="loading-indicator" class="loading-indicator hidden">
+                    <div class="spinner"></div>
+                    <span>Generating image...</span>
+                </div>
+
+                <div id="error-message" class="error-message hidden"></div>
             </section>
         </main>
     </div>
