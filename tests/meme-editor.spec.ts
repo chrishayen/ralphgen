@@ -1,0 +1,340 @@
+import { test, expect } from '@playwright/test';
+
+test.describe('US-004: Text editing inline', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.click('#add-text-btn');
+  });
+
+  test('double-clicking text box enters edit mode', async ({ page }) => {
+    // Fabric.js creates an upper canvas for interactions - use that
+    const upperCanvas = page.locator('.upper-canvas');
+    // Double click on center of canvas where text is placed
+    await upperCanvas.dblclick({ position: { x: 256, y: 256 }, force: true });
+    // Check if text is in editing mode by verifying cursor blinks or textarea exists
+    const isEditing = await page.evaluate(() => {
+      const canvas = (window as any).canvas;
+      const activeObject = canvas?.getActiveObject?.();
+      return activeObject?.isEditing === true;
+    });
+    expect(isEditing).toBe(true);
+  });
+
+  test('can type new text content', async ({ page }) => {
+    // Fabric.js creates an upper canvas for interactions - use that
+    const upperCanvas = page.locator('.upper-canvas');
+    await upperCanvas.dblclick({ position: { x: 256, y: 256 }, force: true });
+    await page.keyboard.press('Control+a');
+    await page.keyboard.type('Hello Ralph!');
+    const text = await page.evaluate(() => {
+      const canvas = (window as any).canvas;
+      const activeObject = canvas?.getActiveObject?.();
+      return activeObject?.text;
+    });
+    expect(text).toBe('Hello Ralph!');
+  });
+});
+
+test.describe('US-005: Text resize and rotate controls', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.click('#add-text-btn');
+  });
+
+  test('selected text box shows resize handles', async ({ page }) => {
+    const hasControls = await page.evaluate(() => {
+      const canvas = (window as any).canvas;
+      const activeObject = canvas?.getActiveObject?.();
+      return activeObject?.hasControls === true;
+    });
+    expect(hasControls).toBe(true);
+  });
+
+  test('selected text box has rotation control', async ({ page }) => {
+    const hasRotatingPoint = await page.evaluate(() => {
+      const canvas = (window as any).canvas;
+      const activeObject = canvas?.getActiveObject?.();
+      // In Fabric.js 5, check if mtr control exists
+      return activeObject?.controls?.mtr !== undefined;
+    });
+    expect(hasRotatingPoint).toBe(true);
+  });
+});
+
+test.describe('US-006: Font selector', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+  });
+
+  test('font dropdown exists with meme fonts', async ({ page }) => {
+    const fontSelect = page.locator('#font-select');
+    await expect(fontSelect).toBeVisible();
+    const options = await fontSelect.locator('option').allTextContents();
+    expect(options).toContain('Impact');
+    expect(options).toContain('Arial Black');
+    expect(options).toContain('Comic Sans MS');
+    expect(options).toContain('Bangers');
+    expect(options).toContain('Permanent Marker');
+  });
+
+  test('changing font updates selected text box', async ({ page }) => {
+    await page.click('#add-text-btn');
+    await page.selectOption('#font-select', 'Comic Sans MS');
+    const fontFamily = await page.evaluate(() => {
+      const canvas = (window as any).canvas;
+      const activeObject = canvas?.getActiveObject?.();
+      return activeObject?.fontFamily;
+    });
+    expect(fontFamily).toBe('Comic Sans MS');
+  });
+});
+
+test.describe('US-007: Text color and stroke controls', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+  });
+
+  test('fill color picker exists', async ({ page }) => {
+    await expect(page.locator('#fill-color')).toBeVisible();
+  });
+
+  test('stroke color picker exists', async ({ page }) => {
+    await expect(page.locator('#stroke-color')).toBeVisible();
+  });
+
+  test('stroke width input exists', async ({ page }) => {
+    await expect(page.locator('#stroke-width')).toBeVisible();
+  });
+
+  test('meme style preset button exists', async ({ page }) => {
+    await expect(page.locator('#meme-style-btn')).toBeVisible();
+  });
+
+  test('changing fill color updates text', async ({ page }) => {
+    await page.click('#add-text-btn');
+    await page.fill('#fill-color', '#ff0000');
+    await page.locator('#fill-color').dispatchEvent('change');
+    const fill = await page.evaluate(() => {
+      const canvas = (window as any).canvas;
+      const activeObject = canvas?.getActiveObject?.();
+      return activeObject?.fill;
+    });
+    expect(fill).toBe('#ff0000');
+  });
+
+  test('meme style preset sets white fill and black stroke', async ({ page }) => {
+    await page.click('#add-text-btn');
+    await page.click('#meme-style-btn');
+    const styles = await page.evaluate(() => {
+      const canvas = (window as any).canvas;
+      const activeObject = canvas?.getActiveObject?.();
+      return {
+        fill: activeObject?.fill,
+        stroke: activeObject?.stroke,
+        strokeWidth: activeObject?.strokeWidth
+      };
+    });
+    expect(styles.fill).toBe('#ffffff');
+    expect(styles.stroke).toBe('#000000');
+    expect(styles.strokeWidth).toBe(3);
+  });
+});
+
+test.describe('US-008: Delete text box', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+  });
+
+  test('delete button exists', async ({ page }) => {
+    await expect(page.locator('#delete-text-btn')).toBeVisible();
+  });
+
+  test('delete button removes selected text box', async ({ page }) => {
+    await page.click('#add-text-btn');
+    let textCount = await page.evaluate(() => {
+      const canvas = (window as any).canvas;
+      return canvas?.getObjects?.().filter((o: any) => o.type === 'i-text').length;
+    });
+    expect(textCount).toBe(1);
+
+    await page.click('#delete-text-btn');
+    textCount = await page.evaluate(() => {
+      const canvas = (window as any).canvas;
+      return canvas?.getObjects?.().filter((o: any) => o.type === 'i-text').length;
+    });
+    expect(textCount).toBe(0);
+  });
+
+  test('delete key removes selected text box when not editing', async ({ page }) => {
+    await page.click('#add-text-btn');
+    // Verify text is selected
+    const isSelected = await page.evaluate(() => {
+      const canvas = (window as any).canvas;
+      const activeObject = canvas?.getActiveObject?.();
+      return activeObject?.type === 'i-text';
+    });
+    expect(isSelected).toBe(true);
+
+    // Text should not be in editing mode after being added
+    let isEditing = await page.evaluate(() => {
+      const canvas = (window as any).canvas;
+      const activeObject = canvas?.getActiveObject?.();
+      return activeObject?.isEditing === true;
+    });
+    expect(isEditing).toBe(false);
+
+    // Focus on the body to receive keyboard events
+    await page.evaluate(() => document.body.focus());
+
+    await page.keyboard.press('Delete');
+    await page.waitForTimeout(100);
+
+    const textCount = await page.evaluate(() => {
+      const canvas = (window as any).canvas;
+      return canvas?.getObjects?.().filter((o: any) => o.type === 'i-text').length;
+    });
+    expect(textCount).toBe(0);
+  });
+});
+
+test.describe('US-009: Download meme as PNG', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+  });
+
+  test('download button exists', async ({ page }) => {
+    await expect(page.locator('#download-btn')).toBeVisible();
+  });
+
+  test('download creates PNG file', async ({ page }) => {
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.click('#download-btn')
+    ]);
+    expect(download.suggestedFilename()).toMatch(/ralph-meme-\d+\.png/);
+  });
+});
+
+test.describe('US-010: Save meme to gallery', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+  });
+
+  test('save to gallery button exists', async ({ page }) => {
+    await expect(page.locator('#save-gallery-btn')).toBeVisible();
+  });
+
+  test('saves meme to localStorage', async ({ page }) => {
+    await page.fill('#prompt-input', 'Test prompt');
+    await page.click('#save-gallery-btn');
+    const gallery = await page.evaluate(() => {
+      const data = localStorage.getItem('ralphgen-gallery');
+      return data ? JSON.parse(data) : [];
+    });
+    expect(gallery.length).toBe(1);
+    expect(gallery[0].prompt).toBe('Test prompt');
+    expect(gallery[0].image).toBeTruthy();
+    expect(gallery[0].timestamp).toBeTruthy();
+  });
+
+  test('shows success message when saved', async ({ page }) => {
+    await page.click('#save-gallery-btn');
+    await expect(page.locator('.toast-success')).toBeVisible();
+  });
+});
+
+test.describe('US-011: View gallery with thumbnails', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    // Add a meme to gallery first
+    await page.click('#save-gallery-btn');
+  });
+
+  test('gallery background exists', async ({ page }) => {
+    await expect(page.locator('#gallery-background')).toBeAttached();
+  });
+
+  test('shows thumbnail for saved memes', async ({ page }) => {
+    const thumbnails = page.locator('.gallery-item');
+    await expect(thumbnails).toHaveCount(1);
+  });
+
+  test('clicking thumbnail shows preview', async ({ page }) => {
+    // Use evaluate to trigger click since gallery is in background
+    await page.evaluate(() => {
+      const img = document.querySelector('.gallery-item img') as HTMLElement;
+      img?.click();
+    });
+    await expect(page.locator('#gallery-preview')).toBeVisible();
+  });
+});
+
+test.describe('US-012: Delete from gallery', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.click('#save-gallery-btn');
+  });
+
+  test('delete button exists on gallery items', async ({ page }) => {
+    await expect(page.locator('.gallery-item .delete-gallery-item')).toBeVisible();
+  });
+
+  test('clicking delete removes meme from gallery', async ({ page }) => {
+    // Use evaluate to trigger click since gallery is in background
+    await page.evaluate(() => {
+      const btn = document.querySelector('.gallery-item .delete-gallery-item') as HTMLElement;
+      btn?.click();
+    });
+    await page.waitForTimeout(100);
+    const thumbnails = page.locator('.gallery-item');
+    await expect(thumbnails).toHaveCount(0);
+    const gallery = await page.evaluate(() => {
+      const data = localStorage.getItem('ralphgen-gallery');
+      return data ? JSON.parse(data) : [];
+    });
+    expect(gallery.length).toBe(0);
+  });
+});
+
+test.describe('US-013: Load gallery meme to editor', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.click('#save-gallery-btn');
+  });
+
+  test('load button exists on gallery items', async ({ page }) => {
+    await expect(page.locator('.gallery-item .load-gallery-item')).toBeVisible();
+  });
+
+  test('clicking load sets image as canvas background', async ({ page }) => {
+    // Use evaluate to trigger click since gallery is in background
+    await page.evaluate(() => {
+      const btn = document.querySelector('.gallery-item .load-gallery-item') as HTMLElement;
+      btn?.click();
+    });
+    // Wait for image to load
+    await page.waitForTimeout(500);
+    const hasBackground = await page.evaluate(() => {
+      const canvas = (window as any).canvas;
+      const objects = canvas?.getObjects?.() || [];
+      // Check for image type (Fabric.js uses lowercase 'image')
+      return objects.some((o: any) => o.type === 'image');
+    });
+    expect(hasBackground).toBe(true);
+  });
+
+  test('loading clears existing text boxes', async ({ page }) => {
+    await page.click('#add-text-btn');
+    // Use evaluate to trigger click since gallery is in background
+    await page.evaluate(() => {
+      const btn = document.querySelector('.gallery-item .load-gallery-item') as HTMLElement;
+      btn?.click();
+    });
+    await page.waitForTimeout(500);
+    const textCount = await page.evaluate(() => {
+      const canvas = (window as any).canvas;
+      return canvas?.getObjects?.().filter((o: any) => o.type === 'i-text').length;
+    });
+    expect(textCount).toBe(0);
+  });
+});

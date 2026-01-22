@@ -11,7 +11,8 @@ const fabricLib = fabric;
 const CONFIG = {
     zImageEndpoint: 'http://localhost:8000/generate',
     canvasWidth: 512,
-    canvasHeight: 512
+    canvasHeight: 512,
+    galleryKey: 'ralphgen-gallery'
 };
 
 // Global state
@@ -24,6 +25,9 @@ window.canvas = null;
 
 /** @type {fabric.Image | null} */
 let backgroundImage = null;
+
+/** @type {string} */
+let currentPrompt = '';
 
 /**
  * Initialize the Fabric.js canvas
@@ -40,7 +44,51 @@ function initCanvas() {
     // @ts-ignore
     window.canvas = canvas;
 
+    // Update controls when selection changes
+    canvas.on('selection:created', updateControlsFromSelection);
+    canvas.on('selection:updated', updateControlsFromSelection);
+    canvas.on('selection:cleared', clearControlSelection);
+
     canvas.renderAll();
+}
+
+/**
+ * Update control panel inputs based on selected object
+ * @returns {void}
+ */
+function updateControlsFromSelection() {
+    if (!canvas) return;
+
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject || activeObject.type !== 'i-text') return;
+
+    const text = /** @type {fabric.IText} */ (activeObject);
+
+    const fontSelect = /** @type {HTMLSelectElement | null} */ (document.getElementById('font-select'));
+    const fillColor = /** @type {HTMLInputElement | null} */ (document.getElementById('fill-color'));
+    const strokeColor = /** @type {HTMLInputElement | null} */ (document.getElementById('stroke-color'));
+    const strokeWidth = /** @type {HTMLInputElement | null} */ (document.getElementById('stroke-width'));
+
+    if (fontSelect && text.fontFamily) {
+        fontSelect.value = text.fontFamily;
+    }
+    if (fillColor && typeof text.fill === 'string') {
+        fillColor.value = text.fill;
+    }
+    if (strokeColor && typeof text.stroke === 'string') {
+        strokeColor.value = text.stroke;
+    }
+    if (strokeWidth && typeof text.strokeWidth === 'number') {
+        strokeWidth.value = String(text.strokeWidth);
+    }
+}
+
+/**
+ * Clear control selection state
+ * @returns {void}
+ */
+function clearControlSelection() {
+    // Could reset controls to default values here if needed
 }
 
 /**
@@ -87,6 +135,25 @@ function hideError() {
     if (errorEl) {
         errorEl.classList.add('hidden');
     }
+}
+
+/**
+ * Show toast notification
+ * @param {string} message - Message to display
+ * @param {'success' | 'error'} type - Toast type
+ * @returns {void}
+ */
+function showToast(message, type = 'success') {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+
+    toast.textContent = message;
+    toast.className = `toast toast-${type}`;
+    toast.classList.remove('hidden');
+
+    setTimeout(() => {
+        toast.classList.add('hidden');
+    }, 3000);
 }
 
 /**
@@ -155,6 +222,7 @@ async function generateImage() {
     hideError();
     showLoading();
     generateBtn.disabled = true;
+    currentPrompt = prompt;
 
     try {
         const response = await fetch(CONFIG.zImageEndpoint, {
@@ -211,11 +279,11 @@ function addTextBox() {
         top: CONFIG.canvasHeight / 2,
         originX: 'center',
         originY: 'center',
-        fontFamily: 'Impact',
+        fontFamily: 'Bangers',
         fontSize: 40,
         fill: '#ffffff',
-        stroke: '#000000',
-        strokeWidth: 2
+        stroke: '#ffffff',
+        strokeWidth: 1
     });
 
     canvas.add(text);
@@ -224,19 +292,534 @@ function addTextBox() {
 }
 
 /**
+ * Delete the currently selected text box
+ * @returns {void}
+ */
+function deleteSelectedText() {
+    if (!canvas) return;
+
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject) return;
+
+    // Only delete if it's a text object and not in editing mode
+    if (activeObject.type === 'i-text') {
+        const textObj = /** @type {fabric.IText} */ (activeObject);
+        if (!textObj.isEditing) {
+            canvas.remove(activeObject);
+            canvas.renderAll();
+        }
+    }
+}
+
+/**
+ * Change font of selected text
+ * @param {string} fontFamily - Font family name
+ * @returns {void}
+ */
+function changeFont(fontFamily) {
+    if (!canvas) return;
+
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject || activeObject.type !== 'i-text') return;
+
+    const text = /** @type {fabric.IText} */ (activeObject);
+    text.set('fontFamily', fontFamily);
+    canvas.renderAll();
+}
+
+/**
+ * Change fill color of selected text
+ * @param {string} color - Hex color string
+ * @returns {void}
+ */
+function changeFillColor(color) {
+    if (!canvas) return;
+
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject || activeObject.type !== 'i-text') return;
+
+    const text = /** @type {fabric.IText} */ (activeObject);
+    text.set('fill', color);
+    canvas.renderAll();
+}
+
+/**
+ * Change stroke color of selected text
+ * @param {string} color - Hex color string
+ * @returns {void}
+ */
+function changeStrokeColor(color) {
+    if (!canvas) return;
+
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject || activeObject.type !== 'i-text') return;
+
+    const text = /** @type {fabric.IText} */ (activeObject);
+    text.set('stroke', color);
+    canvas.renderAll();
+}
+
+/**
+ * Change stroke width of selected text
+ * @param {number} width - Stroke width
+ * @returns {void}
+ */
+function changeStrokeWidth(width) {
+    if (!canvas) return;
+
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject || activeObject.type !== 'i-text') return;
+
+    const text = /** @type {fabric.IText} */ (activeObject);
+    text.set('strokeWidth', width);
+    canvas.renderAll();
+}
+
+/**
+ * Apply meme style preset to selected text
+ * @returns {void}
+ */
+function applyMemeStyle() {
+    if (!canvas) return;
+
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject || activeObject.type !== 'i-text') return;
+
+    const text = /** @type {fabric.IText} */ (activeObject);
+    text.set({
+        fill: '#ffffff',
+        stroke: '#000000',
+        strokeWidth: 3
+    });
+
+    // Update UI controls
+    const fillColor = /** @type {HTMLInputElement | null} */ (document.getElementById('fill-color'));
+    const strokeColor = /** @type {HTMLInputElement | null} */ (document.getElementById('stroke-color'));
+    const strokeWidth = /** @type {HTMLInputElement | null} */ (document.getElementById('stroke-width'));
+
+    if (fillColor) fillColor.value = '#ffffff';
+    if (strokeColor) strokeColor.value = '#000000';
+    if (strokeWidth) strokeWidth.value = '3';
+
+    canvas.renderAll();
+}
+
+/**
+ * Download canvas as PNG
+ * @returns {void}
+ */
+function downloadMeme() {
+    if (!canvas) return;
+
+    // Deselect any active object to hide selection handles
+    canvas.discardActiveObject();
+    canvas.renderAll();
+
+    const dataUrl = canvas.toDataURL({
+        format: 'png',
+        quality: 1
+    });
+
+    const timestamp = Date.now();
+    const filename = `ralph-meme-${timestamp}.png`;
+
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+/**
+ * @typedef {Object} GalleryItem
+ * @property {string} image - Base64 image data URL
+ * @property {string} prompt - Original prompt used
+ * @property {number} timestamp - Unix timestamp when saved
+ */
+
+/**
+ * Get gallery items from localStorage
+ * @returns {GalleryItem[]}
+ */
+function getGalleryItems() {
+    const data = localStorage.getItem(CONFIG.galleryKey);
+    if (!data) return [];
+    try {
+        return JSON.parse(data);
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Save gallery items to localStorage
+ * @param {GalleryItem[]} items - Gallery items to save
+ * @returns {void}
+ */
+function saveGalleryItems(items) {
+    localStorage.setItem(CONFIG.galleryKey, JSON.stringify(items));
+}
+
+/**
+ * Save current canvas to gallery
+ * @returns {void}
+ */
+function saveToGallery() {
+    if (!canvas) return;
+
+    // Deselect any active object to hide selection handles
+    canvas.discardActiveObject();
+    canvas.renderAll();
+
+    const dataUrl = canvas.toDataURL({
+        format: 'png',
+        quality: 1
+    });
+
+    const promptInput = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('prompt-input'));
+    const prompt = promptInput ? promptInput.value.trim() : currentPrompt;
+
+    /** @type {GalleryItem} */
+    const item = {
+        image: dataUrl,
+        prompt: prompt,
+        timestamp: Date.now()
+    };
+
+    const items = getGalleryItems();
+    items.unshift(item);
+    saveGalleryItems(items);
+
+    renderGallery();
+    showToast('Saved to gallery!', 'success');
+}
+
+/**
+ * Delete item from gallery by index
+ * @param {number} index - Index of item to delete
+ * @returns {void}
+ */
+function deleteFromGallery(index) {
+    const items = getGalleryItems();
+    if (index >= 0 && index < items.length) {
+        items.splice(index, 1);
+        saveGalleryItems(items);
+        renderGallery();
+    }
+}
+
+/**
+ * Load gallery item to canvas
+ * @param {number} index - Index of item to load
+ * @returns {Promise<void>}
+ */
+async function loadFromGallery(index) {
+    const items = getGalleryItems();
+    if (index < 0 || index >= items.length) return;
+
+    const item = items[index];
+    if (!canvas) return;
+
+    // Clear all text boxes
+    const objects = canvas.getObjects();
+    const textsToRemove = objects.filter(obj => obj.type === 'i-text');
+    textsToRemove.forEach(obj => canvas?.remove(obj));
+
+    // Set the saved image as background
+    await setBackgroundImage(item.image);
+
+    // Update prompt input
+    const promptInput = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('prompt-input'));
+    if (promptInput) {
+        promptInput.value = item.prompt;
+    }
+    currentPrompt = item.prompt;
+
+    // Close preview if open
+    closeGalleryPreview();
+}
+
+/**
+ * Show gallery preview
+ * @param {number} index - Index of item to preview
+ * @returns {void}
+ */
+function showGalleryPreview(index) {
+    const items = getGalleryItems();
+    if (index < 0 || index >= items.length) return;
+
+    const item = items[index];
+
+    const preview = document.getElementById('gallery-preview');
+    const previewImage = /** @type {HTMLImageElement | null} */ (document.getElementById('preview-image'));
+    const previewPrompt = document.getElementById('preview-prompt');
+
+    if (preview && previewImage && previewPrompt) {
+        previewImage.src = item.image;
+        previewPrompt.textContent = item.prompt || '(no prompt)';
+        preview.classList.remove('hidden');
+    }
+}
+
+/**
+ * Close gallery preview
+ * @returns {void}
+ */
+function closeGalleryPreview() {
+    const preview = document.getElementById('gallery-preview');
+    if (preview) {
+        preview.classList.add('hidden');
+    }
+}
+
+/**
+ * Generate a seeded random number for consistent positioning
+ * @param {number} seed - Seed value
+ * @returns {function(): number}
+ */
+function seededRandom(seed) {
+    return function() {
+        seed = (seed * 9301 + 49297) % 233280;
+        return seed / 233280;
+    };
+}
+
+/**
+ * Render gallery items scattered on the background
+ * @returns {void}
+ */
+function renderGallery() {
+    const background = document.getElementById('gallery-background');
+    if (!background) return;
+
+    const items = getGalleryItems();
+
+    background.innerHTML = '';
+
+    items.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = 'gallery-item';
+
+        // Use timestamp as seed for consistent random positioning
+        const rand = seededRandom(item.timestamp);
+
+        // Position randomly across the whole screen
+        const x = rand() * 85 + 5; // 5-90% from left
+        const y = rand() * 75 + 10; // 10-85% from top
+
+        const rotation = (rand() - 0.5) * 30; // -15 to 15 degrees
+
+        div.style.left = `${x}%`;
+        div.style.top = `${y}%`;
+        div.style.transform = `rotate(${rotation}deg)`;
+
+        div.innerHTML = `
+            <img src="${item.image}" alt="Saved meme">
+            <div class="gallery-item-actions">
+                <button class="load-gallery-item" data-index="${index}">Load</button>
+                <button class="delete-gallery-item" data-index="${index}">X</button>
+            </div>
+        `;
+
+        // Click on image to preview
+        div.querySelector('img')?.addEventListener('click', () => showGalleryPreview(index));
+
+        // Load button
+        div.querySelector('.load-gallery-item')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            loadFromGallery(index);
+        });
+
+        // Delete button
+        div.querySelector('.delete-gallery-item')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteFromGallery(index);
+        });
+
+        background.appendChild(div);
+    });
+}
+
+/**
+ * Load sample images into the gallery for demo purposes
+ * @returns {Promise<void>}
+ */
+async function loadSampleImages() {
+    const sampleImages = [
+        'data/ralph_wiggum/pic_0000.jpg',
+        'data/ralph_wiggum/pic_0005.jpg',
+        'data/ralph_wiggum/pic_0010.jpg',
+        'data/ralph_wiggum/pic_0015.jpg',
+        'data/ralph_wiggum/pic_0020.jpg',
+        'data/ralph_wiggum/pic_0025.jpg',
+        'data/ralph_wiggum/pic_0030.jpg',
+        'data/ralph_wiggum/pic_0035.jpg',
+    ];
+
+    const prompts = [
+        'Ralph eating paste',
+        'Ralph in class',
+        'Ralph being Ralph',
+        'I bent my wookiee',
+        'Me fail English?',
+        'Ralph at school',
+        'Super Nintendo Chalmers',
+        'I choo-choo-choose you',
+    ];
+
+    for (let i = 0; i < sampleImages.length; i++) {
+        try {
+            const response = await fetch(sampleImages[i]);
+            const blob = await response.blob();
+            const dataUrl = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+            });
+
+            /** @type {GalleryItem} */
+            const item = {
+                image: /** @type {string} */ (dataUrl),
+                prompt: prompts[i],
+                timestamp: Date.now() - (i * 100000) // Stagger timestamps for different positions
+            };
+
+            const items = getGalleryItems();
+            items.push(item);
+            saveGalleryItems(items);
+        } catch (error) {
+            console.error('Failed to load sample image:', sampleImages[i], error);
+        }
+    }
+
+    renderGallery();
+    showToast('Loaded sample images!', 'success');
+}
+
+/**
  * Initialize event listeners
  * @returns {void}
  */
 function initEventListeners() {
+    // Generate button
     const generateBtn = document.getElementById('generate-btn');
     if (generateBtn) {
         generateBtn.addEventListener('click', generateImage);
     }
 
+    // Add text button
     const addTextBtn = document.getElementById('add-text-btn');
     if (addTextBtn) {
         addTextBtn.addEventListener('click', addTextBox);
     }
+
+    // Delete text button
+    const deleteTextBtn = document.getElementById('delete-text-btn');
+    if (deleteTextBtn) {
+        deleteTextBtn.addEventListener('click', deleteSelectedText);
+    }
+
+    // Font selector
+    const fontSelect = /** @type {HTMLSelectElement | null} */ (document.getElementById('font-select'));
+    if (fontSelect) {
+        fontSelect.addEventListener('change', () => {
+            changeFont(fontSelect.value);
+        });
+    }
+
+    // Fill color
+    const fillColor = /** @type {HTMLInputElement | null} */ (document.getElementById('fill-color'));
+    if (fillColor) {
+        fillColor.addEventListener('input', () => {
+            changeFillColor(fillColor.value);
+        });
+        fillColor.addEventListener('change', () => {
+            changeFillColor(fillColor.value);
+        });
+    }
+
+    // Stroke color
+    const strokeColor = /** @type {HTMLInputElement | null} */ (document.getElementById('stroke-color'));
+    if (strokeColor) {
+        strokeColor.addEventListener('input', () => {
+            changeStrokeColor(strokeColor.value);
+        });
+        strokeColor.addEventListener('change', () => {
+            changeStrokeColor(strokeColor.value);
+        });
+    }
+
+    // Stroke width
+    const strokeWidth = /** @type {HTMLInputElement | null} */ (document.getElementById('stroke-width'));
+    if (strokeWidth) {
+        strokeWidth.addEventListener('input', () => {
+            changeStrokeWidth(Number(strokeWidth.value));
+        });
+        strokeWidth.addEventListener('change', () => {
+            changeStrokeWidth(Number(strokeWidth.value));
+        });
+    }
+
+    // Meme style preset button
+    const memeStyleBtn = document.getElementById('meme-style-btn');
+    if (memeStyleBtn) {
+        memeStyleBtn.addEventListener('click', applyMemeStyle);
+    }
+
+    // Download button
+    const downloadBtn = document.getElementById('download-btn');
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', downloadMeme);
+    }
+
+    // Save to gallery button
+    const saveGalleryBtn = document.getElementById('save-gallery-btn');
+    if (saveGalleryBtn) {
+        saveGalleryBtn.addEventListener('click', saveToGallery);
+    }
+
+    // Load sample images button
+    const loadSamplesBtn = document.getElementById('load-samples-btn');
+    if (loadSamplesBtn) {
+        loadSamplesBtn.addEventListener('click', loadSampleImages);
+    }
+
+    // Close preview button
+    const closePreviewBtn = document.getElementById('close-preview');
+    if (closePreviewBtn) {
+        closePreviewBtn.addEventListener('click', closeGalleryPreview);
+    }
+
+    // Close preview on background click
+    const preview = document.getElementById('gallery-preview');
+    if (preview) {
+        preview.addEventListener('click', (e) => {
+            if (e.target === preview) {
+                closeGalleryPreview();
+            }
+        });
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        // Delete key to remove selected text (when not in input/textarea)
+        if ((e.key === 'Delete' || e.key === 'Backspace') &&
+            !(e.target instanceof HTMLInputElement) &&
+            !(e.target instanceof HTMLTextAreaElement)) {
+            // Check if text is in editing mode
+            if (canvas) {
+                const activeObject = canvas.getActiveObject();
+                if (activeObject && activeObject.type === 'i-text') {
+                    const textObj = /** @type {fabric.IText} */ (activeObject);
+                    if (!textObj.isEditing) {
+                        e.preventDefault();
+                        deleteSelectedText();
+                    }
+                }
+            }
+        }
+    });
 }
 
 /**
@@ -246,6 +829,7 @@ function initEventListeners() {
 function init() {
     initCanvas();
     initEventListeners();
+    renderGallery();
 }
 
 // Initialize when DOM is ready

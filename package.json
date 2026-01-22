@@ -4,8 +4,9 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "test": "npm run typecheck"
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "test": "npm run typecheck && npx playwright test",
+    "test:ui": "npx playwright test --ui"
   },
   "repository": {
     "type": "git",
@@ -20,8 +21,10 @@
   },
   "homepage": "https://github.com/chrishayen/ralphgen#readme",
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@types/fabric": "^5.3.11",
     "playwright": "^1.57.0",
+    "serve": "^14.2.5",
     "typescript": "^5.9.3"
   }
 }
