@@ -1,0 +1,30 @@
+# Ralph Progress Log
+# Feature: Ralph Wiggum Meme Generator
+# Branch: ralph/meme-generator
+# Started: 2026-01-21
+
+## Codebase Patterns
+- Use `// @ts-check` at top of JS files for TypeScript checking
+- Use `/// <reference types="fabric" />` for Fabric.js type hints
+- Use JSDoc comments for type annotations in JavaScript
+- Fabric.js is loaded via CDN, access global `fabric` object
+- Run `npm run typecheck` to verify code
+
+---
+
+## 2026-01-21 - US-001
+- Implemented project scaffolding with HTML, CSS, and Fabric.js
+- Files created:
+  - index.html: Two-panel layout with canvas (left) and controls (right)
+  - styles.css: Dark theme with CSS custom properties
+  - app.js: Fabric.js canvas initialization (512x512, gray background)
+  - package.json: npm package with typecheck script
+  - tsconfig.json: TypeScript config for JS checking
+- **Learnings for future iterations:**
+  - Fabric.js CDN version 5.3.1 is used
+  - Google Fonts included: Bangers and Permanent Marker
+  - Canvas size is 512x512 pixels matching z-image output
+  - Use `fabricLib` variable to reference the global fabric object with types
+  - Type checking enabled with `tsc --noEmit`
+---
+

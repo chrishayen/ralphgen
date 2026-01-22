@@ -1,0 +1,221 @@
+{
+  "project": "RalphGen",
+  "branchName": "ralph/meme-generator",
+  "description": "Ralph Wiggum Meme Generator - Generate Ralph Wiggum images via z-image and add text overlays",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Project setup with HTML, CSS, and Fabric.js",
+      "description": "As a developer, I need the project scaffolded with basic structure so I can build the meme generator.",
+      "acceptanceCriteria": [
+        "Create index.html with two-panel layout (left: canvas area, right: controls)",
+        "Create styles.css with dark theme styling",
+        "Include Fabric.js via CDN in index.html",
+        "Create app.js with Fabric canvas initialization (512x512)",
+        "Canvas displays with gray placeholder background",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Prompt input and z-image integration",
+      "description": "As a user, I want to enter a text prompt and generate a Ralph Wiggum image.",
+      "acceptanceCriteria": [
+        "Text input field for entering SD prompts in controls panel",
+        "Generate button triggers POST request to z-image endpoint",
+        "Loading spinner/indicator displays while generating",
+        "Generated image displays as canvas background layer",
+        "Error message displays if request fails",
+        "z-image endpoint URL read from config object at top of app.js",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Add text box to canvas",
+      "description": "As a user, I want to add draggable text boxes to my generated image.",
+      "acceptanceCriteria": [
+        "Add Text button in controls panel",
+        "Clicking button adds Fabric.js IText object to canvas center",
+        "Text box has default text 'Your text here'",
+        "Text box is draggable (move by clicking and dragging)",
+        "Text box shows selection handles when selected",
+        "Can add multiple text boxes",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Text editing inline",
+      "description": "As a user, I want to edit text content by double-clicking the text box.",
+      "acceptanceCriteria": [
+        "Double-clicking text box enters edit mode (Fabric.js IText default behavior)",
+        "Can type new text content",
+        "Clicking outside exits edit mode",
+        "Text updates in real-time while typing",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Text resize and rotate controls",
+      "description": "As a user, I want to resize and rotate text boxes using handles.",
+      "acceptanceCriteria": [
+        "Selected text box shows corner resize handles",
+        "Dragging corner handles scales text proportionally",
+        "Selected text box shows rotation handle (top center)",
+        "Dragging rotation handle rotates text smoothly",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Font selector",
+      "description": "As a user, I want to choose different fonts for my meme text.",
+      "acceptanceCriteria": [
+        "Font dropdown in controls panel with options: Impact, Arial Black, Comic Sans MS, Bangers, Permanent Marker",
+        "Include Google Fonts link for Bangers and Permanent Marker",
+        "Selecting font updates currently selected text box",
+        "Font change applies immediately",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Text color and stroke controls",
+      "description": "As a user, I want to change text fill color and add outline stroke.",
+      "acceptanceCriteria": [
+        "Color picker input for text fill color (default white)",
+        "Color picker input for text stroke color (default black)",
+        "Number input for stroke width (default 2, range 0-10)",
+        "Meme Style Preset button sets white fill, black stroke, width 3",
+        "Changes apply to currently selected text box immediately",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Delete text box",
+      "description": "As a user, I want to delete text boxes I no longer need.",
+      "acceptanceCriteria": [
+        "Delete button in controls panel removes selected text box",
+        "Delete/Backspace key also removes selected text box (when not in edit mode)",
+        "Nothing happens if no text box is selected",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Download meme as PNG",
+      "description": "As a user, I want to download my finished meme as an image file.",
+      "acceptanceCriteria": [
+        "Download button in controls panel",
+        "Clicking exports canvas as PNG using toDataURL()",
+        "File downloads with name ralph-meme-[timestamp].png",
+        "Downloaded image includes background and all text flattened",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Save meme to gallery",
+      "description": "As a user, I want to save memes to a local gallery for later viewing.",
+      "acceptanceCriteria": [
+        "Save to Gallery button in controls panel",
+        "Clicking saves canvas as base64 PNG to localStorage",
+        "Also saves metadata: prompt text, timestamp",
+        "Shows success toast/message when saved",
+        "Gallery data stored as JSON array in localStorage key 'ralphgen-gallery'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "View gallery with thumbnails",
+      "description": "As a user, I want to browse my saved memes in a gallery view.",
+      "acceptanceCriteria": [
+        "Gallery section in controls panel (collapsible or tab)",
+        "Shows thumbnail grid of saved memes",
+        "Each thumbnail shows small preview image",
+        "Clicking thumbnail shows larger preview (modal or expanded view)",
+        "Display shows original prompt used for each meme",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Delete from gallery",
+      "description": "As a user, I want to delete memes from my gallery.",
+      "acceptanceCriteria": [
+        "Delete button/icon on each gallery thumbnail",
+        "Clicking removes meme from localStorage",
+        "Gallery view updates immediately after deletion",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Load gallery meme to editor",
+      "description": "As a user, I want to load a saved meme back into the editor to add new text.",
+      "acceptanceCriteria": [
+        "Edit/Load button on each gallery thumbnail",
+        "Clicking loads saved image as canvas background",
+        "Clears any existing text boxes from canvas",
+        "User can add new text overlays on loaded image",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
