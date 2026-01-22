@@ -9,6 +9,8 @@
 - Use JSDoc comments for type annotations in JavaScript
 - Fabric.js is loaded via CDN, access global `fabric` object
 - Run `npm run typecheck` to verify code
+- Canvas is exposed on `window.canvas` for testing access
+- Use playwright with `node test-addtext.mjs` for browser testing
 
 ---
 
@@ -40,5 +42,21 @@
   - Use `fabricLib.Image.fromURL()` to load images, with `{ crossOrigin: 'anonymous' }` option
   - Background images are non-selectable (`selectable: false, evented: false`) and sent to back
   - CONFIG object at top of app.js holds endpoint URL for easy configuration
+---
+
+## 2026-01-21 - US-003
+- Implemented "Add text box to canvas" feature
+- Files modified:
+  - index.html: Added "Text" section with "Add Text" button
+  - app.js: Added addTextBox() function, exposed canvas on window for testing
+  - package.json: Added playwright as dev dependency for browser testing
+- Files created:
+  - test-addtext.mjs: Playwright test for text box functionality
+- **Learnings for future iterations:**
+  - Use `fabricLib.IText` for editable text boxes (supports inline editing)
+  - Text boxes are centered with `originX: 'center', originY: 'center'`
+  - Use `canvas.setActiveObject(obj)` to auto-select newly created objects
+  - Canvas needs to be exposed on `window.canvas` for playwright tests to access it
+  - Playwright tests work well with `page.evaluate()` for canvas state verification
 ---
 
