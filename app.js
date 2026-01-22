@@ -3,11 +3,35 @@
 
 // RalphGen - Ralph Wiggum Meme Generator
 
+/**
+ * Process prompt to ensure trigger word is present
+ * @param {string} prompt - User's input prompt
+ * @returns {string} - Processed prompt with trigger word
+ */
+function processPrompt(prompt) {
+    const triggerWord = 'ralphwiggum';
+
+    // Replace "ralph" or "wiggum" (case insensitive, whole words) with trigger
+    let processed = prompt.replace(/\bralph\b/gi, triggerWord);
+    processed = processed.replace(/\bwiggum\b/gi, triggerWord);
+
+    // If trigger word still not present, prepend it
+    if (!processed.toLowerCase().includes(triggerWord)) {
+        processed = triggerWord + ' ' + processed;
+    }
+
+    return processed;
+}
+
+// Expose processPrompt for testing immediately
+// @ts-ignore
+window.processPrompt = processPrompt;
+
 /** @type {typeof fabric} */
 // @ts-ignore - fabric is loaded via CDN
 const fabricLib = fabric;
 
-// Configuration
+// Configuration (zImageEndpoint loaded from server)
 const CONFIG = {
     zImageEndpoint: 'http://localhost:8000/generate',
     canvasWidth: 512,
@@ -15,11 +39,29 @@ const CONFIG = {
     galleryKey: 'ralphgen-gallery'
 };
 
+/**
+ * Load configuration from server
+ * @returns {Promise<void>}
+ */
+async function loadConfig() {
+    try {
+        const response = await fetch('/api/config');
+        if (response.ok) {
+            const serverConfig = await response.json();
+            if (serverConfig.zImageEndpoint) {
+                CONFIG.zImageEndpoint = serverConfig.zImageEndpoint;
+            }
+        }
+    } catch {
+        // Use default config if server config unavailable
+    }
+}
+
 // Global state
 /** @type {fabric.Canvas | null} */
 let canvas = null;
 
-// Expose canvas on window for testing
+// Expose canvas for testing
 // @ts-ignore
 window.canvas = null;
 
@@ -213,19 +255,21 @@ async function generateImage() {
         return;
     }
 
-    const prompt = promptInput.value.trim();
-    if (!prompt) {
+    const userPrompt = promptInput.value.trim();
+    if (!userPrompt) {
         showError('Please enter a prompt');
         return;
     }
 
+    const prompt = processPrompt(userPrompt);
+
     hideError();
     showLoading();
     generateBtn.disabled = true;
-    currentPrompt = prompt;
+    currentPrompt = userPrompt;  // Store user's original prompt for gallery
 
     try {
-        const response = await fetch(CONFIG.zImageEndpoint, {
+        const response = await fetch('/api/generate', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -433,39 +477,35 @@ function downloadMeme() {
 
 /**
  * @typedef {Object} GalleryItem
- * @property {string} image - Base64 image data URL
+ * @property {string} id - Unique ID
+ * @property {string} image - Image URL
  * @property {string} prompt - Original prompt used
  * @property {number} timestamp - Unix timestamp when saved
  */
 
+/** @type {GalleryItem[]} */
+let galleryItems = [];
+
 /**
- * Get gallery items from localStorage
- * @returns {GalleryItem[]}
+ * Fetch gallery items from server
+ * @returns {Promise<GalleryItem[]>}
  */
-function getGalleryItems() {
-    const data = localStorage.getItem(CONFIG.galleryKey);
-    if (!data) return [];
+async function fetchGalleryItems() {
     try {
-        return JSON.parse(data);
+        const response = await fetch('/api/gallery');
+        if (!response.ok) return [];
+        galleryItems = await response.json();
+        return galleryItems;
     } catch {
         return [];
     }
 }
 
 /**
- * Save gallery items to localStorage
- * @param {GalleryItem[]} items - Gallery items to save
- * @returns {void}
- */
-function saveGalleryItems(items) {
-    localStorage.setItem(CONFIG.galleryKey, JSON.stringify(items));
-}
-
-/**
  * Save current canvas to gallery
- * @returns {void}
+ * @returns {Promise<void>}
  */
-function saveToGallery() {
+async function saveToGallery() {
     if (!canvas) return;
 
     // Deselect any active object to hide selection handles
@@ -480,46 +520,57 @@ function saveToGallery() {
     const promptInput = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('prompt-input'));
     const prompt = promptInput ? promptInput.value.trim() : currentPrompt;
 
-    /** @type {GalleryItem} */
-    const item = {
-        image: dataUrl,
-        prompt: prompt,
-        timestamp: Date.now()
-    };
+    try {
+        const response = await fetch('/api/gallery', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                image: dataUrl,
+                prompt: prompt,
+                timestamp: Date.now()
+            })
+        });
 
-    const items = getGalleryItems();
-    items.unshift(item);
-    saveGalleryItems(items);
+        if (!response.ok) throw new Error('Failed to save');
 
-    renderGallery();
-    showToast('Saved to gallery!', 'success');
+        await fetchGalleryItems();
+        renderGallery();
+        showToast('Saved to gallery!', 'success');
+    } catch (error) {
+        showToast('Failed to save', 'error');
+    }
 }
 
 /**
- * Delete item from gallery by index
- * @param {number} index - Index of item to delete
- * @returns {void}
+ * Delete item from gallery by ID
+ * @param {string} id - ID of item to delete
+ * @returns {Promise<void>}
  */
-function deleteFromGallery(index) {
-    const items = getGalleryItems();
-    if (index >= 0 && index < items.length) {
-        items.splice(index, 1);
-        saveGalleryItems(items);
+async function deleteFromGallery(id) {
+    try {
+        const response = await fetch('/api/gallery/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+
+        if (!response.ok) throw new Error('Failed to delete');
+
+        await fetchGalleryItems();
         renderGallery();
+    } catch (error) {
+        showToast('Failed to delete', 'error');
     }
 }
 
 /**
  * Load gallery item to canvas
- * @param {number} index - Index of item to load
+ * @param {string} id - ID of item to load
  * @returns {Promise<void>}
  */
-async function loadFromGallery(index) {
-    const items = getGalleryItems();
-    if (index < 0 || index >= items.length) return;
-
-    const item = items[index];
-    if (!canvas) return;
+async function loadFromGallery(id) {
+    const item = galleryItems.find(i => i.id === id);
+    if (!item || !canvas) return;
 
     // Clear all text boxes
     const objects = canvas.getObjects();
@@ -532,9 +583,9 @@ async function loadFromGallery(index) {
     // Update prompt input
     const promptInput = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('prompt-input'));
     if (promptInput) {
-        promptInput.value = item.prompt;
+        promptInput.value = item.prompt || '';
     }
-    currentPrompt = item.prompt;
+    currentPrompt = item.prompt || '';
 
     // Close preview if open
     closeGalleryPreview();
@@ -542,14 +593,12 @@ async function loadFromGallery(index) {
 
 /**
  * Show gallery preview
- * @param {number} index - Index of item to preview
+ * @param {string} id - ID of item to preview
  * @returns {void}
  */
-function showGalleryPreview(index) {
-    const items = getGalleryItems();
-    if (index < 0 || index >= items.length) return;
-
-    const item = items[index];
+function showGalleryPreview(id) {
+    const item = galleryItems.find(i => i.id === id);
+    if (!item) return;
 
     const preview = document.getElementById('gallery-preview');
     const previewImage = /** @type {HTMLImageElement | null} */ (document.getElementById('preview-image'));
@@ -593,11 +642,9 @@ function renderGallery() {
     const background = document.getElementById('gallery-background');
     if (!background) return;
 
-    const items = getGalleryItems();
-
     background.innerHTML = '';
 
-    items.forEach((item, index) => {
+    galleryItems.forEach((item) => {
         const div = document.createElement('div');
         div.className = 'gallery-item';
 
@@ -617,84 +664,28 @@ function renderGallery() {
         div.innerHTML = `
             <img src="${item.image}" alt="Saved meme">
             <div class="gallery-item-actions">
-                <button class="load-gallery-item" data-index="${index}">Load</button>
-                <button class="delete-gallery-item" data-index="${index}">X</button>
+                <button class="load-gallery-item" data-id="${item.id}">Load</button>
+                <button class="delete-gallery-item" data-id="${item.id}">X</button>
             </div>
         `;
 
         // Click on image to preview
-        div.querySelector('img')?.addEventListener('click', () => showGalleryPreview(index));
+        div.querySelector('img')?.addEventListener('click', () => showGalleryPreview(item.id));
 
         // Load button
         div.querySelector('.load-gallery-item')?.addEventListener('click', (e) => {
             e.stopPropagation();
-            loadFromGallery(index);
+            loadFromGallery(item.id);
         });
 
         // Delete button
         div.querySelector('.delete-gallery-item')?.addEventListener('click', (e) => {
             e.stopPropagation();
-            deleteFromGallery(index);
+            deleteFromGallery(item.id);
         });
 
         background.appendChild(div);
     });
-}
-
-/**
- * Load sample images into the gallery for demo purposes
- * @returns {Promise<void>}
- */
-async function loadSampleImages() {
-    const sampleImages = [
-        'data/ralph_wiggum/pic_0000.jpg',
-        'data/ralph_wiggum/pic_0005.jpg',
-        'data/ralph_wiggum/pic_0010.jpg',
-        'data/ralph_wiggum/pic_0015.jpg',
-        'data/ralph_wiggum/pic_0020.jpg',
-        'data/ralph_wiggum/pic_0025.jpg',
-        'data/ralph_wiggum/pic_0030.jpg',
-        'data/ralph_wiggum/pic_0035.jpg',
-    ];
-
-    const prompts = [
-        'Ralph eating paste',
-        'Ralph in class',
-        'Ralph being Ralph',
-        'I bent my wookiee',
-        'Me fail English?',
-        'Ralph at school',
-        'Super Nintendo Chalmers',
-        'I choo-choo-choose you',
-    ];
-
-    for (let i = 0; i < sampleImages.length; i++) {
-        try {
-            const response = await fetch(sampleImages[i]);
-            const blob = await response.blob();
-            const dataUrl = await new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.readAsDataURL(blob);
-            });
-
-            /** @type {GalleryItem} */
-            const item = {
-                image: /** @type {string} */ (dataUrl),
-                prompt: prompts[i],
-                timestamp: Date.now() - (i * 100000) // Stagger timestamps for different positions
-            };
-
-            const items = getGalleryItems();
-            items.push(item);
-            saveGalleryItems(items);
-        } catch (error) {
-            console.error('Failed to load sample image:', sampleImages[i], error);
-        }
-    }
-
-    renderGallery();
-    showToast('Loaded sample images!', 'success');
 }
 
 /**
@@ -779,12 +770,6 @@ function initEventListeners() {
         saveGalleryBtn.addEventListener('click', saveToGallery);
     }
 
-    // Load sample images button
-    const loadSamplesBtn = document.getElementById('load-samples-btn');
-    if (loadSamplesBtn) {
-        loadSamplesBtn.addEventListener('click', loadSampleImages);
-    }
-
     // Close preview button
     const closePreviewBtn = document.getElementById('close-preview');
     if (closePreviewBtn) {
@@ -824,11 +809,13 @@ function initEventListeners() {
 
 /**
  * Initialize the application
- * @returns {void}
+ * @returns {Promise<void>}
  */
-function init() {
+async function init() {
+    await loadConfig();
     initCanvas();
     initEventListeners();
+    await fetchGalleryItems();
     renderGallery();
 }
 

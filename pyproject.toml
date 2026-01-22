@@ -1,9 +1,20 @@
 [project]
 name = "ralphgen"
 version = "0.1.0"
-description = "Add your description here"
+description = "Ralph Wiggum Meme Generator"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "kaggle>=1.8.3",
+    "torch",
+    "diffusers",
+    "transformers",
+    "accelerate",
+    "safetensors",
+    "fastapi",
+    "uvicorn[standard]",
+    "peft",
 ]
+
+[project.scripts]
+zimage-server = "z_image_server:main"

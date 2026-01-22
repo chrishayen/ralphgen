@@ -1,1 +1,4 @@
 node_modules
+*.safetensors
+__pycache__/
+.venv/
