@@ -18,6 +18,10 @@ const CONFIG = {
 /** @type {fabric.Canvas | null} */
 let canvas = null;
 
+// Expose canvas on window for testing
+// @ts-ignore
+window.canvas = null;
+
 /** @type {fabric.Image | null} */
 let backgroundImage = null;
 
@@ -31,6 +35,10 @@ function initCanvas() {
         height: CONFIG.canvasHeight,
         backgroundColor: '#4a4a4a'
     });
+
+    // Expose canvas on window for testing
+    // @ts-ignore
+    window.canvas = canvas;
 
     canvas.renderAll();
 }
@@ -190,6 +198,32 @@ async function generateImage() {
 }
 
 /**
+ * Add a new text box to the canvas
+ * @returns {void}
+ */
+function addTextBox() {
+    if (!canvas) {
+        return;
+    }
+
+    const text = new fabricLib.IText('Your text here', {
+        left: CONFIG.canvasWidth / 2,
+        top: CONFIG.canvasHeight / 2,
+        originX: 'center',
+        originY: 'center',
+        fontFamily: 'Impact',
+        fontSize: 40,
+        fill: '#ffffff',
+        stroke: '#000000',
+        strokeWidth: 2
+    });
+
+    canvas.add(text);
+    canvas.setActiveObject(text);
+    canvas.renderAll();
+}
+
+/**
  * Initialize event listeners
  * @returns {void}
  */
@@ -197,6 +231,11 @@ function initEventListeners() {
     const generateBtn = document.getElementById('generate-btn');
     if (generateBtn) {
         generateBtn.addEventListener('click', generateImage);
+    }
+
+    const addTextBtn = document.getElementById('add-text-btn');
+    if (addTextBtn) {
+        addTextBtn.addEventListener('click', addTextBox);
     }
 }
 

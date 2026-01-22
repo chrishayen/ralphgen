@@ -21,6 +21,7 @@
   "homepage": "https://github.com/chrishayen/ralphgen#readme",
   "devDependencies": {
     "@types/fabric": "^5.3.11",
+    "playwright": "^1.57.0",
     "typescript": "^5.9.3"
   }
 }
