@@ -18,7 +18,7 @@ MODEL_PATH = os.environ.get("ZIMAGE_MODEL", "Tongyi-MAI/Z-Image-Turbo")
 LORA_PATH = os.environ.get("ZIMAGE_LORA",
     os.path.join(os.path.dirname(__file__), "ralphwiggum.safetensors")
 )
-LORA_STRENGTH = float(os.environ.get("LORA_STRENGTH", "1.0"))
+LORA_STRENGTH = float(os.environ.get("LORA_STRENGTH", "0.9"))
 
 DEFAULT_WIDTH = 512
 DEFAULT_HEIGHT = 512

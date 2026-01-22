@@ -449,11 +449,17 @@ function applyMemeStyle() {
 }
 
 /**
- * Download canvas as PNG
- * @returns {void}
+ * Download canvas as PNG and save to gallery
+ * @returns {Promise<void>}
  */
-function downloadMeme() {
+async function downloadMeme() {
     if (!canvas) return;
+
+    // Only allow download/save if an image has been generated
+    if (!backgroundImage) {
+        showError('Please generate an image first');
+        return;
+    }
 
     // Deselect any active object to hide selection handles
     canvas.discardActiveObject();
@@ -473,6 +479,9 @@ function downloadMeme() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
+    // Also save to gallery
+    await saveToGalleryWithDataUrl(dataUrl);
 }
 
 /**
@@ -502,21 +511,11 @@ async function fetchGalleryItems() {
 }
 
 /**
- * Save current canvas to gallery
+ * Save to gallery with provided data URL
+ * @param {string} dataUrl - The image data URL to save
  * @returns {Promise<void>}
  */
-async function saveToGallery() {
-    if (!canvas) return;
-
-    // Deselect any active object to hide selection handles
-    canvas.discardActiveObject();
-    canvas.renderAll();
-
-    const dataUrl = canvas.toDataURL({
-        format: 'png',
-        quality: 1
-    });
-
+async function saveToGalleryWithDataUrl(dataUrl) {
     const promptInput = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('prompt-input'));
     const prompt = promptInput ? promptInput.value.trim() : currentPrompt;
 
@@ -535,60 +534,9 @@ async function saveToGallery() {
 
         await fetchGalleryItems();
         renderGallery();
-        showToast('Saved to gallery!', 'success');
     } catch (error) {
-        showToast('Failed to save', 'error');
+        console.error('Failed to save to gallery:', error);
     }
-}
-
-/**
- * Delete item from gallery by ID
- * @param {string} id - ID of item to delete
- * @returns {Promise<void>}
- */
-async function deleteFromGallery(id) {
-    try {
-        const response = await fetch('/api/gallery/delete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id })
-        });
-
-        if (!response.ok) throw new Error('Failed to delete');
-
-        await fetchGalleryItems();
-        renderGallery();
-    } catch (error) {
-        showToast('Failed to delete', 'error');
-    }
-}
-
-/**
- * Load gallery item to canvas
- * @param {string} id - ID of item to load
- * @returns {Promise<void>}
- */
-async function loadFromGallery(id) {
-    const item = galleryItems.find(i => i.id === id);
-    if (!item || !canvas) return;
-
-    // Clear all text boxes
-    const objects = canvas.getObjects();
-    const textsToRemove = objects.filter(obj => obj.type === 'i-text');
-    textsToRemove.forEach(obj => canvas?.remove(obj));
-
-    // Set the saved image as background
-    await setBackgroundImage(item.image);
-
-    // Update prompt input
-    const promptInput = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('prompt-input'));
-    if (promptInput) {
-        promptInput.value = item.prompt || '';
-    }
-    currentPrompt = item.prompt || '';
-
-    // Close preview if open
-    closeGalleryPreview();
 }
 
 /**
@@ -663,26 +611,10 @@ function renderGallery() {
 
         div.innerHTML = `
             <img src="${item.image}" alt="Saved meme">
-            <div class="gallery-item-actions">
-                <button class="load-gallery-item" data-id="${item.id}">Load</button>
-                <button class="delete-gallery-item" data-id="${item.id}">X</button>
-            </div>
         `;
 
         // Click on image to preview
         div.querySelector('img')?.addEventListener('click', () => showGalleryPreview(item.id));
-
-        // Load button
-        div.querySelector('.load-gallery-item')?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            loadFromGallery(item.id);
-        });
-
-        // Delete button
-        div.querySelector('.delete-gallery-item')?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            deleteFromGallery(item.id);
-        });
 
         background.appendChild(div);
     });
@@ -762,12 +694,6 @@ function initEventListeners() {
     const downloadBtn = document.getElementById('download-btn');
     if (downloadBtn) {
         downloadBtn.addEventListener('click', downloadMeme);
-    }
-
-    // Save to gallery button
-    const saveGalleryBtn = document.getElementById('save-gallery-btn');
-    if (saveGalleryBtn) {
-        saveGalleryBtn.addEventListener('click', saveToGallery);
     }
 
     // Close preview button

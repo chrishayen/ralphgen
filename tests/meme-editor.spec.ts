@@ -256,7 +256,47 @@ test.describe('US-009: Download meme as PNG', () => {
     await expect(page.locator('#download-btn')).toBeVisible();
   });
 
-  test('download creates PNG file', async ({ page }) => {
+  test('download without generated image does not save to gallery', async ({ page }) => {
+    // Track if gallery POST was called
+    let galleryPostCalled = false;
+    await page.route('/api/gallery', async route => {
+      if (route.request().method() === 'POST') {
+        galleryPostCalled = true;
+      }
+      await route.continue();
+    });
+
+    // Click download without generating an image first
+    await page.click('#download-btn');
+
+    // Wait for any potential gallery save attempt
+    await page.waitForTimeout(500);
+
+    // Gallery should NOT have been called
+    expect(galleryPostCalled).toBe(false);
+  });
+
+  test('download creates PNG file when image is generated', async ({ page }) => {
+    // Mock the generate API to return a test image
+    await page.route('/api/generate', async route => {
+      // Return a small valid PNG base64
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+        })
+      });
+    });
+
+    // Generate an image first
+    await page.fill('#prompt-input', 'test ralph');
+    await page.click('#generate-btn');
+    await page.waitForFunction(() => {
+      const canvas = (window as any).canvas;
+      return canvas?.getObjects?.().some((o: any) => o.type === 'image');
+    });
+
     const [download] = await Promise.all([
       page.waitForEvent('download'),
       page.click('#download-btn')
@@ -265,37 +305,69 @@ test.describe('US-009: Download meme as PNG', () => {
   });
 });
 
-test.describe('US-010: Save meme to gallery', () => {
+test.describe('US-010: Save meme to gallery on download', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    // Mock the generate API
+    await page.route('/api/generate', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+        })
+      });
+    });
   });
 
-  test('save to gallery button exists', async ({ page }) => {
-    await expect(page.locator('#save-gallery-btn')).toBeVisible();
-  });
-
-  test('saves meme to server gallery', async ({ page }) => {
+  test('download button saves to gallery automatically', async ({ page }) => {
+    // Generate an image first
     await page.fill('#prompt-input', 'Test prompt');
-    await page.click('#save-gallery-btn');
-    // Wait for gallery to render
+    await page.click('#generate-btn');
+    await page.waitForFunction(() => {
+      const canvas = (window as any).canvas;
+      return canvas?.getObjects?.().some((o: any) => o.type === 'image');
+    });
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.click('#download-btn')
+    ]);
+    // Wait for gallery to render after download
     await page.waitForSelector('.gallery-item');
     // Verify gallery item exists
     const thumbnails = page.locator('.gallery-item');
     await expect(thumbnails.first()).toBeVisible();
-  });
-
-  test('shows success message when saved', async ({ page }) => {
-    await page.click('#save-gallery-btn');
-    // Toast appears briefly, wait for it with a longer timeout
-    await expect(page.locator('.toast-success')).toBeVisible({ timeout: 10000 });
   });
 });
 
 test.describe('US-011: View gallery with thumbnails', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    // Add a meme to gallery first
-    await page.click('#save-gallery-btn');
+    // Mock the generate API
+    await page.route('/api/generate', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+        })
+      });
+    });
+
+    // Generate an image first
+    await page.fill('#prompt-input', 'Test prompt');
+    await page.click('#generate-btn');
+    await page.waitForFunction(() => {
+      const canvas = (window as any).canvas;
+      return canvas?.getObjects?.().some((o: any) => o.type === 'image');
+    });
+
+    // Add a meme to gallery via download
+    await Promise.all([
+      page.waitForEvent('download'),
+      page.click('#download-btn')
+    ]);
     await page.waitForSelector('.gallery-item');
   });
 
@@ -318,75 +390,3 @@ test.describe('US-011: View gallery with thumbnails', () => {
   });
 });
 
-test.describe('US-012: Delete from gallery', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.click('#save-gallery-btn');
-    await page.waitForSelector('.gallery-item');
-  });
-
-  test('delete button exists on gallery items', async ({ page }) => {
-    await expect(page.locator('.gallery-item .delete-gallery-item').first()).toBeVisible();
-  });
-
-  test('clicking delete removes meme from gallery', async ({ page }) => {
-    // Get initial count
-    const initialCount = await page.locator('.gallery-item').count();
-    expect(initialCount).toBeGreaterThanOrEqual(1);
-    // Get the ID of the first item we're about to delete
-    const itemId = await page.evaluate(() => {
-      const btn = document.querySelector('.gallery-item .delete-gallery-item') as HTMLElement;
-      return btn?.getAttribute('data-id');
-    });
-    // Use evaluate to trigger click since gallery is in background
-    await page.evaluate(() => {
-      const btn = document.querySelector('.gallery-item .delete-gallery-item') as HTMLElement;
-      btn?.click();
-    });
-    // Wait for that specific item to be removed
-    if (itemId) {
-      await expect(page.locator(`.delete-gallery-item[data-id="${itemId}"]`)).toHaveCount(0);
-    }
-  });
-});
-
-test.describe('US-013: Load gallery meme to editor', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.click('#save-gallery-btn');
-    await page.waitForSelector('.gallery-item');
-  });
-
-  test('load button exists on gallery items', async ({ page }) => {
-    await expect(page.locator('.gallery-item .load-gallery-item').first()).toBeVisible();
-  });
-
-  test('clicking load sets image as canvas background', async ({ page }) => {
-    // Use evaluate to trigger click since gallery is in background
-    await page.evaluate(() => {
-      const btn = document.querySelector('.gallery-item .load-gallery-item') as HTMLElement;
-      btn?.click();
-    });
-    // Wait for image to appear on canvas
-    await page.waitForFunction(() => {
-      const canvas = (window as any).canvas;
-      const objects = canvas?.getObjects?.() || [];
-      return objects.some((o: any) => o.type === 'image');
-    }, { timeout: 5000 });
-  });
-
-  test('loading clears existing text boxes', async ({ page }) => {
-    await page.click('#add-text-btn');
-    // Use evaluate to trigger click since gallery is in background
-    await page.evaluate(() => {
-      const btn = document.querySelector('.gallery-item .load-gallery-item') as HTMLElement;
-      btn?.click();
-    });
-    await page.waitForTimeout(500);
-    const textCount = await page.evaluate(() => {
-      const canvas = (window as any).canvas;
-      return canvas?.getObjects?.().filter((o: any) => o.type === 'i-text').length;
-    });
-    expect(textCount).toBe(0);
-  });
-});
